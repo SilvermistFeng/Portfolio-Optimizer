@@ -93,3 +93,57 @@ class TrackingEngine:
             holdings=updated_holdings,
             chart_data=chart_data
         )
+
+    def generate_rebalancing_orders(self, holdings: List[Holding], target_weights: dict, investment_amount: float = 0.0) -> List[dict]:
+        """
+        Generates buy/sell orders to match target weights.
+        investment_amount: Extra cash to inject (DCA logic) - Optional, default 0.
+        """
+        # 1. Calculate Current Equity
+        current_data = self.analyze_portfolio(holdings)
+        total_equity = current_data.total_value + investment_amount
+        
+        if total_equity == 0:
+            return []
+
+        orders = []
+        
+        # 2. Iterate Targets
+        for ticker, target_pct in target_weights.items():
+            target_val = total_equity * target_pct
+            
+            # Find current val
+            current_val = 0
+            current_price = 0
+            
+            # Check existing holdings
+            existing = next((h for h in current_data.holdings if h.ticker == ticker), None)
+            if existing:
+                current_val = existing.market_value
+                current_price = existing.current_price
+            else:
+                # Fetch price if not held
+                # MVP: inefficient single fetch, optimizing later
+                try:
+                    price_frame = self.provider.get_historical_prices([ticker], period="1d")
+                    if not price_frame.empty:
+                        current_price = float(price_frame.iloc[-1][ticker])
+                except:
+                    current_price = 100.0 # fallback
+            
+            diff = target_val - current_val
+            
+            # Threshold to avoid trivial trades ($10)
+            if abs(diff) > 10 and current_price > 0:
+                action = "BUY" if diff > 0 else "SELL"
+                shares = round(abs(diff) / current_price, 2)
+                
+                orders.append({
+                    "ticker": ticker,
+                    "action": action,
+                    "shares": shares,
+                    "value": round(abs(diff), 2),
+                    "price": round(current_price, 2)
+                })
+        
+        return orders

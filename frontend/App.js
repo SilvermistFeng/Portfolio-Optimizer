@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { PaperProvider } from 'react-native-paper';
-import { theme } from './src/theme';
-import RootNavigator from './src/navigation/RootNavigator';
+import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import RootNavigator from './src/navigation/RootNavigator';
+import { LightTheme, DarkTheme } from './src/theme';
+import { PreferencesProvider, PreferencesContext } from './src/context/PreferencesContext';
 
-export default function App() {
+function Main() {
+  const { isThemeDark } = useContext(PreferencesContext);
+  const theme = isThemeDark ? DarkTheme : LightTheme;
+
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
@@ -14,5 +18,13 @@ export default function App() {
         </NavigationContainer>
       </PaperProvider>
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <PreferencesProvider>
+      <Main />
+    </PreferencesProvider>
   );
 }

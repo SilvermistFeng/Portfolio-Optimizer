@@ -14,6 +14,11 @@ class Holding(BaseModel):
 class PortfolioRequest(BaseModel):
     holdings: List[Holding]
 
+class RebalanceRequest(BaseModel):
+    holdings: List[Holding]
+    target_weights: dict # {"AAPL": 0.5, "BND": 0.5}
+    investment_amount: Optional[float] = 0.0
+
 class PerformancePoint(BaseModel):
     date: str # YYYY-MM-DD
     portfolio_value: float
@@ -24,4 +29,4 @@ class TrackingResult(BaseModel):
     total_gain_loss: float
     total_gain_loss_pct: float
     holdings: List[Holding]
-    chart_data: List[PerformancePoint]
+    chart_data: List[PerformancePoint] = []

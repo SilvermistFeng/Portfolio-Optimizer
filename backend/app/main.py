@@ -26,4 +26,14 @@ app.include_router(tracking_router)
 @app.post("/optimize", response_model=OptimizationResult)
 def optimize_portfolio(request: OptimizationRequest):
     optimizer = PortfolioOptimizer()
-    return optimizer.optimize_portfolio(request)
+    try:
+        return optimizer.optimize_portfolio(request)
+    except ValueError as e:
+        # User error (invalid tickers, empty list)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Unexpected error
+        from fastapi import HTTPException
+        print(f"Optimization Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Optimization Error")

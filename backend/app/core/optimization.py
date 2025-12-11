@@ -26,8 +26,28 @@ class PortfolioOptimizer:
         self.risk_free_rate = 0.02 # Assumption for MVP
 
     def optimize_portfolio(self, request: OptimizationRequest) -> OptimizationResult:
+        # 0. Basic Validation
+        if not request.tickers:
+             raise ValueError("No tickers provided for optimization")
+
         # 1. Fetch Data
         df = self.provider.get_historical_prices(request.tickers)
+        
+        if df.empty:
+            raise ValueError(f"No historical data found for tickers: {request.tickers}")
+
+        # Drop columns with no data (all NaNs)
+        df = df.dropna(axis=1, how='all')
+        if df.empty:
+             raise ValueError("All tickers failed to return data (delisted or invalid)")
+        
+        # Fill missing values (ffill)
+        df = df.fillna(method='ffill').dropna()
+        
+        if df.empty:
+             raise ValueError("Insufficient data points after cleaning")
+
+        # 2. Calculate Expected Returns and Covariance
         
         # 2. Calculate Expected Returns and Covariance
         # annualized returns
@@ -80,6 +100,13 @@ class PortfolioOptimizer:
         sharpe = (exp_ret - self.risk_free_rate) / vol
 
         # Simple greedy allocation
+        # Simple greedy allocation
+        if df.empty:
+             # Should be caught above, but safety first
+             return OptimizationResult(
+                weights={}, allocation={}, expected_return=0, volatility=0, sharpe_ratio=0, leftover_cash=request.investment_amount
+             )
+             
         latest_prices = df.iloc[-1]
         allocation = {}
         cash = request.investment_amount

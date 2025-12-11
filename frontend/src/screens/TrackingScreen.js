@@ -1,29 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Text, TextInput, Button, DataTable, Card, Portal, Modal, ActivityIndicator, IconButton } from 'react-native-paper';
+import { Text, TextInput, Button, DataTable, Card, Portal, Modal, ActivityIndicator, IconButton, useTheme, Chip, List } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-chart-kit';
-import { analyzePortfolio } from '../services/api';
+import { analyzePortfolio, rebalancePortfolio, validateTicker } from '../services/api';
 
 const screenWidth = Dimensions.get('window').width;
+
+const STRATEGIES = {
+    "Balanced": { "SPY": 0.5, "BND": 0.3, "GLD": 0.2 },
+    "Growth": { "SPY": 0.4, "QQQ": 0.4, "BTC-USD": 0.2 },
+    "Conservative": { "SPY": 0.3, "BND": 0.5, "GLD": 0.2 }
+};
 
 export default function TrackingScreen() {
     const [holdings, setHoldings] = useState([]);
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [rebalanceLoading, setRebalanceLoading] = useState(false);
+    const theme = useTheme();
 
-    // Modal State
+    // Add Holding Modal State
     const [visible, setVisible] = useState(false);
     const [ticker, setTicker] = useState('');
     const [shares, setShares] = useState('');
     const [cost, setCost] = useState('');
 
+    // Validation State
+    const [isValidating, setIsValidating] = useState(false);
+    const [isValid, setIsValid] = useState(false);
+    const [validationMsg, setValidationMsg] = useState('');
+
+    // Rebalance Modal State
+    const [rebalanceVisible, setRebalanceVisible] = useState(false);
+    const [selectedStrategy, setSelectedStrategy] = useState("Balanced");
+    const [rebalanceOrders, setRebalanceOrders] = useState(null);
+
     const showModal = () => setVisible(true);
-    const hideModal = () => { setVisible(false); clearInputs(); };
-    const clearInputs = () => { setTicker(''); setShares(''); setCost(''); };
+    const hideModal = () => {
+        setVisible(false);
+        clearInputs();
+    };
+    const clearInputs = () => {
+        setTicker('');
+        setShares('');
+        setCost('');
+        setIsValid(false);
+        setValidationMsg('');
+    };
+
+    const showRebalanceModal = () => { setRebalanceVisible(true); setRebalanceOrders(null); };
+    const hideRebalanceModal = () => { setRebalanceVisible(false); };
+
+    // Debounced Validation Logic
+    useEffect(() => {
+        const checkTicker = async () => {
+            if (!ticker || ticker.length < 2) {
+                setIsValid(false);
+                setValidationMsg('');
+                return;
+            }
+
+            setIsValidating(true);
+            setIsValid(false);
+            setValidationMsg('Checking...');
+
+            try {
+                const res = await validateTicker(ticker);
+                if (res.valid) {
+                    setIsValid(true);
+                    setValidationMsg('Valid');
+                } else {
+                    setIsValid(false);
+                    setValidationMsg('Invalid Ticker');
+                }
+            } catch (e) {
+                setIsValid(false);
+                setValidationMsg('Error');
+            } finally {
+                setIsValidating(false);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            if (ticker) checkTicker();
+        }, 800); // 800ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [ticker]);
+
 
     const addHolding = () => {
-        if (!ticker || !shares || !cost) return;
+        if (!ticker || !shares || !cost || !isValid) return;
         const newHolding = {
             ticker: ticker.toUpperCase(),
             shares: parseFloat(shares),
@@ -54,22 +122,28 @@ export default function TrackingScreen() {
         }
     };
 
-    // Chart Data Preparation
+    const handleRebalance = async () => {
+        setRebalanceLoading(true);
+        try {
+            const target = STRATEGIES[selectedStrategy];
+            const data = await rebalancePortfolio(holdings, target, 0);
+            setRebalanceOrders(data.orders);
+        } catch (e) {
+            console.error(e);
+            alert("Rebalance failed");
+        } finally {
+            setRebalanceLoading(false);
+        }
+    };
+
+    // Chart Data Preparation (Truncated for brevity, kept essential logic)
     let chartData = {
         labels: [],
         datasets: [{ data: [] }]
     };
 
     if (result && result.chart_data && result.chart_data.length > 0) {
-        // Take every 4th point to avoid crowding
         const points = result.chart_data;
-        const labels = points.map(p => {
-            const d = new Date(p.date);
-            return `${d.getMonth() + 1}/${d.getDate()}`;
-        });
-        const values = points.map(p => p.portfolio_value);
-
-        // Simple optimization for label display
         const displayLabels = [];
         const displayValues = [];
         points.forEach((p, i) => {
@@ -82,36 +156,33 @@ export default function TrackingScreen() {
 
         chartData = {
             labels: displayLabels,
-            datasets: [
-                {
-                    data: displayValues,
-                    color: (opacity = 1) => `rgba(98, 0, 234, ${opacity})`, // Portfolio
-                    strokeWidth: 2
-                }
-            ],
+            datasets: [{ data: displayValues, color: () => theme.colors.primary, strokeWidth: 2 }],
             legend: ["Portfolio Value"]
         };
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.headerRow}>
-                    <Text variant="headlineMedium" style={styles.title}>Performance</Text>
-                    <Button mode="contained-tonal" icon="plus" onPress={showModal}>Add Stock</Button>
+                    <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>Performance</Text>
+                    <View style={{ flexDirection: 'row' }}>
+                        <Button mode="outlined" onPress={showRebalanceModal} style={{ marginRight: 8 }}>Rebalance</Button>
+                        <Button mode="contained-tonal" icon="plus" onPress={showModal}>Add</Button>
+                    </View>
                 </View>
 
                 {result && (
-                    <View style={styles.summaryCard}>
+                    <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
                         <View>
-                            <Text variant="labelMedium">Total Value</Text>
-                            <Text variant="headlineSmall" style={{ fontWeight: 'bold' }}>
+                            <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>Total Value</Text>
+                            <Text variant="headlineSmall" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
                                 ${result.total_value.toLocaleString()}
                             </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
-                            <Text variant="labelMedium">Total Gain/Loss</Text>
-                            <Text variant="titleMedium" style={{ color: result.total_gain_loss >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                            <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>Total Gain/Loss</Text>
+                            <Text variant="titleMedium" style={{ color: result.total_gain_loss >= 0 ? theme.colors.profit : theme.colors.loss, fontWeight: 'bold' }}>
                                 {result.total_gain_loss >= 0 ? '+' : ''}{result.total_gain_loss.toLocaleString()} ({(result.total_gain_loss_pct * 100).toFixed(2)}%)
                             </Text>
                         </View>
@@ -119,20 +190,20 @@ export default function TrackingScreen() {
                 )}
 
                 {result && chartData.labels.length > 0 && (
-                    <View style={styles.chartContainer}>
+                    <View style={[styles.chartContainer, { backgroundColor: theme.colors.surface }]}>
                         <LineChart
                             data={chartData}
                             width={screenWidth - 40}
                             height={220}
                             chartConfig={{
-                                backgroundColor: "#ffffff",
-                                backgroundGradientFrom: "#ffffff",
-                                backgroundGradientTo: "#ffffff",
+                                backgroundColor: theme.colors.surface,
+                                backgroundGradientFrom: theme.colors.surface,
+                                backgroundGradientTo: theme.colors.surface,
                                 decimalPlaces: 0,
-                                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                color: (opacity = 1) => theme.colors.onSurface,
+                                labelColor: (opacity = 1) => theme.colors.onSurface,
                                 style: { borderRadius: 16 },
-                                propsForDots: { r: "4", strokeWidth: "2", stroke: "#6200ea" }
+                                propsForDots: { r: "4", strokeWidth: "2", stroke: theme.colors.primary }
                             }}
                             bezier
                             style={{ borderRadius: 16 }}
@@ -151,15 +222,12 @@ export default function TrackingScreen() {
                         <DataTable.Title numeric>Value</DataTable.Title>
                         <DataTable.Title></DataTable.Title>
                     </DataTable.Header>
-
                     {holdings.map((h, i) => (
                         <DataTable.Row key={i}>
                             <DataTable.Cell>{h.ticker}</DataTable.Cell>
                             <DataTable.Cell numeric>{h.shares}</DataTable.Cell>
                             <DataTable.Cell numeric>${h.avg_cost}</DataTable.Cell>
-                            <DataTable.Cell numeric>
-                                {result ? `$${result.holdings[i]?.market_value?.toLocaleString()}` : '-'}
-                            </DataTable.Cell>
+                            <DataTable.Cell numeric>{result ? `$${result.holdings[i]?.market_value?.toLocaleString()}` : '-'}</DataTable.Cell>
                             <DataTable.Cell style={{ justifyContent: 'flex-end' }}>
                                 <IconButton icon="delete" size={20} onPress={() => removeHolding(i)} />
                             </DataTable.Cell>
@@ -167,19 +235,88 @@ export default function TrackingScreen() {
                     ))}
                     {holdings.length === 0 && <Text style={{ textAlign: 'center', padding: 20, opacity: 0.5 }}>No holdings added yet.</Text>}
                 </DataTable>
-
             </ScrollView>
 
             <Portal>
+                {/* Add Holding Modal */}
                 <Modal visible={visible} onDismiss={hideModal} contentContainerStyle={styles.modal}>
                     <Text variant="titleLarge" style={{ marginBottom: 15 }}>Add Holding</Text>
-                    <TextInput label="Ticker (e.g. AAPL)" value={ticker} onChangeText={setTicker} mode="outlined" style={styles.input} />
+
+                    <View>
+                        <TextInput
+                            label="Ticker (e.g. AAPL)"
+                            value={ticker}
+                            onChangeText={setTicker}
+                            mode="outlined"
+                            style={styles.input}
+                            right={
+                                isValidating ? <TextInput.Icon icon={() => <ActivityIndicator size={20} />} /> :
+                                    isValid ? <TextInput.Icon icon="check-circle" color="green" /> :
+                                        (ticker.length > 1 && !isValid) ? <TextInput.Icon icon="alert-circle" color="red" /> : null
+                            }
+                        />
+                        {ticker.length > 1 && (
+                            <Text style={{ color: isValid ? 'green' : 'red', fontSize: 12, marginBottom: 10, alignSelf: 'flex-end' }}>
+                                {isValidating ? '' : validationMsg}
+                            </Text>
+                        )}
+                    </View>
+
                     <TextInput label="Shares Owned" value={shares} onChangeText={setShares} keyboardType="numeric" mode="outlined" style={styles.input} />
                     <TextInput label="Avg Cost per Share ($)" value={cost} onChangeText={setCost} keyboardType="numeric" mode="outlined" style={styles.input} />
-                    <Button mode="contained" onPress={addHolding} style={{ marginTop: 10 }}>Add to Portfolio</Button>
+                    <Button
+                        mode="contained"
+                        onPress={addHolding}
+                        style={{ marginTop: 10 }}
+                        disabled={!isValid || !shares || !cost}
+                    >
+                        Add to Portfolio
+                    </Button>
+                </Modal>
+
+                {/* Rebalance Modal */}
+                <Modal visible={rebalanceVisible} onDismiss={hideRebalanceModal} contentContainerStyle={styles.modal}>
+                    <Text variant="titleLarge" style={{ marginBottom: 15, fontWeight: 'bold' }}>Rebalance Portfolio</Text>
+
+                    {!rebalanceOrders ? (
+                        <>
+                            <Text style={{ marginBottom: 10 }}>Select a target strategy:</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15 }}>
+                                {Object.keys(STRATEGIES).map(strat => (
+                                    <Chip
+                                        key={strat}
+                                        selected={selectedStrategy === strat}
+                                        onPress={() => setSelectedStrategy(strat)}
+                                        style={{ marginRight: 5, marginBottom: 5 }}
+                                    >
+                                        {strat}
+                                    </Chip>
+                                ))}
+                            </View>
+                            <Button mode="contained" onPress={handleRebalance} loading={rebalanceLoading}>
+                                Generate Trades
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={{ marginBottom: 10, color: 'green' }}>Recommended Trades:</Text>
+                            <ScrollView style={{ maxHeight: 300 }}>
+                                {rebalanceOrders.map((order, idx) => (
+                                    <List.Item
+                                        key={idx}
+                                        title={`${order.action} ${order.ticker}`}
+                                        description={`${order.shares} shares @ $${order.price}`}
+                                        right={() => <Text style={{ alignSelf: 'center', fontWeight: 'bold' }}>${order.value}</Text>}
+                                        left={props => <List.Icon {...props} icon={order.action === "BUY" ? "arrow-up-circle" : "arrow-down-circle"} color={order.action === "BUY" ? "green" : "red"} />}
+                                    />
+                                ))}
+                                {rebalanceOrders.length === 0 && <Text>Portfolio is already balanced!</Text>}
+                            </ScrollView>
+                            <Button mode="outlined" onPress={hideRebalanceModal} style={{ marginTop: 10 }}>Close</Button>
+                        </>
+                    )}
                 </Modal>
             </Portal>
-
         </SafeAreaView>
     );
 }

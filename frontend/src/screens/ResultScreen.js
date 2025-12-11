@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Text, ActivityIndicator, Card, Button, DataTable } from 'react-native-paper';
+import { Text, ActivityIndicator, Card, Button, DataTable, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-chart-kit';
 import { optimizePortfolio } from '../services/api';
@@ -17,6 +17,7 @@ export default function ResultScreen({ route, navigation }) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const theme = useTheme();
 
     // Get params or use defaults for testing if navigated directly via Tab
     const { assessmentData } = route.params || {};
@@ -42,10 +43,10 @@ export default function ResultScreen({ route, navigation }) {
 
     if (!assessmentData && !loading && !result) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.center}>
-                    <Text variant="titleLarge">No Assessment Data</Text>
-                    <Text style={{ textAlign: 'center', marginTop: 10, marginBottom: 20 }}>Please go to the "Start" tab to complete your assessment first.</Text>
+                    <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>No Assessment Data</Text>
+                    <Text style={{ textAlign: 'center', marginTop: 10, marginBottom: 20, color: theme.colors.onSurface }}>Please go to the "Start" tab to complete your assessment first.</Text>
                     <Button mode="contained" onPress={() => navigation.navigate('Assessment')}>Go to Assessment</Button>
                 </View>
             </SafeAreaView>
@@ -54,10 +55,10 @@ export default function ResultScreen({ route, navigation }) {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.center}>
                     <ActivityIndicator animating={true} size="large" />
-                    <Text style={{ marginTop: 20 }}>Optimizing Portfolio...</Text>
+                    <Text style={{ marginTop: 20, color: theme.colors.onSurface }}>Optimizing Portfolio...</Text>
                 </View>
             </SafeAreaView>
         );
@@ -65,10 +66,10 @@ export default function ResultScreen({ route, navigation }) {
 
     if (error) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.center}>
-                    <Text variant="titleLarge" style={{ color: 'red' }}>Error</Text>
-                    <Text>{error}</Text>
+                    <Text variant="titleLarge" style={{ color: theme.colors.error }}>Error</Text>
+                    <Text style={{ color: theme.colors.onSurface }}>{error}</Text>
                     <Button onPress={fetchOptimization} style={{ marginTop: 20 }}>Retry</Button>
                 </View>
             </SafeAreaView>
@@ -82,15 +83,15 @@ export default function ResultScreen({ route, navigation }) {
             name: ticker,
             population: result.weights[ticker] * 100, // percentage
             color: CHART_COLORS[index % CHART_COLORS.length],
-            legendFontColor: "#7F7F7F",
+            legendFontColor: theme.colors.onSurface,
             legendFontSize: 15
-        })).filter(item => item.population > 0); // Only show items with > 0 allocation
+        })).filter(item => item.population > 0);
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text variant="headlineMedium" style={styles.title}>Your "Sweet Spot"</Text>
+                <Text variant="headlineMedium" style={[styles.title, { color: theme.colors.primary }]}>Your "Sweet Spot"</Text>
 
                 {result && (
                     <>
@@ -100,10 +101,10 @@ export default function ResultScreen({ route, navigation }) {
                                 width={screenWidth - 40}
                                 height={220}
                                 chartConfig={{
-                                    backgroundColor: "#1cc910",
-                                    backgroundGradientFrom: "#eff3ff",
-                                    backgroundGradientTo: "#efefef",
-                                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    backgroundColor: theme.colors.surface,
+                                    backgroundGradientFrom: theme.colors.surface,
+                                    backgroundGradientTo: theme.colors.surface,
+                                    color: (opacity = 1) => theme.colors.primary,
                                 }}
                                 accessor={"population"}
                                 backgroundColor={"transparent"}
@@ -113,48 +114,49 @@ export default function ResultScreen({ route, navigation }) {
                         </View>
 
                         <View style={styles.statsRow}>
-                            <Card style={[styles.statCard, { backgroundColor: '#e8f5e9' }]}>
+                            <Card style={[styles.statCard, { backgroundColor: theme.dark ? theme.colors.surfaceVariant : '#e8f5e9' }]}>
                                 <Card.Content>
-                                    <Text variant="labelMedium">Exp. Return</Text>
-                                    <Text variant="titleLarge">{(result.expected_return * 100).toFixed(1)}%</Text>
+                                    <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>Exp. Return</Text>
+                                    <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{(result.expected_return * 100).toFixed(1)}%</Text>
                                 </Card.Content>
                             </Card>
-                            <Card style={[styles.statCard, { backgroundColor: '#fff3e0' }]}>
+                            <Card style={[styles.statCard, { backgroundColor: theme.dark ? theme.colors.surfaceVariant : '#fff3e0' }]}>
                                 <Card.Content>
-                                    <Text variant="labelMedium">Risk (Vol)</Text>
-                                    <Text variant="titleLarge">{(result.volatility * 100).toFixed(1)}%</Text>
+                                    <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>Risk (Vol)</Text>
+                                    <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{(result.volatility * 100).toFixed(1)}%</Text>
                                 </Card.Content>
                             </Card>
-                            <Card style={[styles.statCard, { backgroundColor: '#e3f2fd' }]}>
+                            <Card style={[styles.statCard, { backgroundColor: theme.dark ? theme.colors.surfaceVariant : '#e3f2fd' }]}>
                                 <Card.Content>
-                                    <Text variant="labelMedium">Sharpe</Text>
-                                    <Text variant="titleLarge">{result.sharpe_ratio}</Text>
+                                    <Text variant="labelMedium" style={{ color: theme.colors.onSurface }}>Sharpe</Text>
+                                    <Text variant="titleLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{result.sharpe_ratio}</Text>
                                 </Card.Content>
                             </Card>
                         </View>
 
-                        <Text variant="titleMedium" style={styles.sectionTitle}>Action Plan</Text>
-                        <DataTable>
-                            <DataTable.Header>
-                                <DataTable.Title>Ticker</DataTable.Title>
-                                <DataTable.Title numeric>Split</DataTable.Title>
-                                <DataTable.Title numeric>Shares</DataTable.Title>
-                            </DataTable.Header>
+                        <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Action Plan</Text>
+                        <Card style={{ backgroundColor: theme.colors.surface }}>
+                            <DataTable>
+                                <DataTable.Header>
+                                    <DataTable.Title textStyle={{ color: theme.colors.onSurface }}>Ticker</DataTable.Title>
+                                    <DataTable.Title numeric textStyle={{ color: theme.colors.onSurface }}>Split</DataTable.Title>
+                                    <DataTable.Title numeric textStyle={{ color: theme.colors.onSurface }}>Shares</DataTable.Title>
+                                </DataTable.Header>
 
-                            {Object.keys(result.allocation).map((ticker) => (
-                                result.allocation[ticker] > 0 &&
-                                <DataTable.Row key={ticker}>
-                                    <DataTable.Cell>{ticker}</DataTable.Cell>
-                                    <DataTable.Cell numeric>{(result.weights[ticker] * 100).toFixed(1)}%</DataTable.Cell>
-                                    <DataTable.Cell numeric>{result.allocation[ticker]}</DataTable.Cell>
-                                </DataTable.Row>
-                            ))}
-                        </DataTable>
+                                {Object.keys(result.allocation).map((ticker) => (
+                                    result.allocation[ticker] > 0 &&
+                                    <DataTable.Row key={ticker}>
+                                        <DataTable.Cell textStyle={{ color: theme.colors.onSurface }}>{ticker}</DataTable.Cell>
+                                        <DataTable.Cell numeric textStyle={{ color: theme.colors.onSurface }}>{(result.weights[ticker] * 100).toFixed(1)}%</DataTable.Cell>
+                                        <DataTable.Cell numeric textStyle={{ color: theme.colors.onSurface }}>{result.allocation[ticker]}</DataTable.Cell>
+                                    </DataTable.Row>
+                                ))}
+                            </DataTable>
+                        </Card>
 
                         <View style={{ marginTop: 20 }}>
-                            <Text>Leftover Cash: ${result.leftover_cash}</Text>
+                            <Text style={{ color: theme.colors.onSurface }}>Leftover Cash: ${result.leftover_cash}</Text>
                         </View>
-
                     </>
                 )}
             </ScrollView>
@@ -165,7 +167,6 @@ export default function ResultScreen({ route, navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
     },
     scrollContent: {
         padding: 20,
@@ -179,7 +180,6 @@ const styles = StyleSheet.create({
     title: {
         fontWeight: 'bold',
         marginBottom: 20,
-        color: '#6200ea',
     },
     chartContainer: {
         alignItems: 'center',

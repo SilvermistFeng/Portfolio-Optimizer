@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 
-// For Android Emulator use 10.0.2.2, for iOS/Web use localhost
+// UPDATE: Pointing to Production (Render) for Release
 const BASE_URL = 'https://portfolio-optimizer-s1yj.onrender.com';
+// const BASE_URL = 'http://192.168.1.11:8000'; // Local LAN IP
 
 export const optimizePortfolio = async (data) => {
     try {
@@ -65,5 +66,36 @@ export const analyzePortfolio = async (holdings) => {
     } catch (error) {
         console.error("Portfolio Analysis Failed:", error);
         throw error;
+    }
+};
+
+export const rebalancePortfolio = async (holdings, targetWeights, investmentAmount = 0) => {
+    try {
+        const response = await fetch(`${BASE_URL}/tracking/rebalance`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ holdings, target_weights: targetWeights, investment_amount: investmentAmount }),
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`API Error: ${text}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Rebalancing Failed:", error);
+        throw error;
+    }
+};
+export const validateTicker = async (ticker) => {
+    try {
+        const response = await fetch(`${BASE_URL}/validate/${ticker}`);
+        if (!response.ok) return { valid: false, error: "Network Error" };
+        return await response.json();
+    } catch (error) {
+        console.error("Validation Failed:", error);
+        return { valid: false, error: error.message };
     }
 };

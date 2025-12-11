@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, ActivityIndicator, DataTable, Avatar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { Text, ActivityIndicator, DataTable, Avatar, IconButton } from 'react-native-paper';
 import { getInfluencer } from '../services/api';
 
 export default function InfluencerDetailScreen({ route }) {
@@ -32,11 +32,18 @@ export default function InfluencerDetailScreen({ route }) {
                 <Avatar.Image size={80} source={{ uri: influencer.image_url }} />
                 <Text variant="headlineSmall" style={styles.name}>{influencer.name}</Text>
                 <Text style={styles.handle}>{influencer.handle}</Text>
-            </View>
 
-            <View style={styles.scoreCard}>
-                <Text variant="displaySmall" style={{ color: '#6200ea', fontWeight: 'bold' }}>{influencer.reliability_score}</Text>
-                <Text>Reliability Score</Text>
+                <View style={styles.statsContainer}>
+                    <View style={styles.statItem}>
+                        <Text variant="titleLarge" style={{ color: '#6200ea', fontWeight: 'bold' }}>{influencer.reliability_score}</Text>
+                        <Text variant="labelSmall">Trust Score</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                        <Text variant="titleLarge">{influencer.total_tips}</Text>
+                        <Text variant="labelSmall">Tracked Tips</Text>
+                    </View>
+                </View>
             </View>
 
             <Text variant="titleMedium" style={styles.sectionTitle}>Track Record (Last Tips)</Text>
@@ -46,6 +53,7 @@ export default function InfluencerDetailScreen({ route }) {
                     <DataTable.Title>Ticker</DataTable.Title>
                     <DataTable.Title>Action</DataTable.Title>
                     <DataTable.Title numeric>Return</DataTable.Title>
+                    <DataTable.Title numeric>Source</DataTable.Title>
                 </DataTable.Header>
 
                 {influencer.tips.map((tip, index) => (
@@ -60,6 +68,15 @@ export default function InfluencerDetailScreen({ route }) {
                             <Text style={{ color: tip.return_pct >= 0 ? 'green' : 'red' }}>
                                 {(tip.return_pct * 100).toFixed(1)}%
                             </Text>
+                        </DataTable.Cell>
+                        <DataTable.Cell numeric>
+                            {tip.source_url && (
+                                <IconButton
+                                    icon="link"
+                                    size={20}
+                                    onPress={() => Linking.openURL(tip.source_url)}
+                                />
+                            )}
                         </DataTable.Cell>
                     </DataTable.Row>
                 ))}
@@ -93,12 +110,21 @@ const styles = StyleSheet.create({
     handle: {
         opacity: 0.6,
     },
-    scoreCard: {
-        alignItems: 'center',
-        padding: 20,
+    statsContainer: {
+        flexDirection: 'row',
+        marginTop: 20,
         backgroundColor: '#f5f5f5',
-        borderRadius: 10,
-        marginBottom: 20,
+        borderRadius: 12,
+        padding: 15,
+        width: '100%',
+        justifyContent: 'space-around',
+    },
+    statItem: {
+        alignItems: 'center',
+    },
+    statDivider: {
+        width: 1,
+        backgroundColor: '#e0e0e0',
     },
     sectionTitle: {
         marginBottom: 10,

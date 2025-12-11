@@ -7,6 +7,7 @@ import AssessmentScreen from '../screens/AssessmentScreen';
 import ResultScreen from '../screens/ResultScreen';
 import HypeMeterScreen from '../screens/HypeMeterScreen';
 import TrackingScreen from '../screens/TrackingScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -56,6 +57,16 @@ export default function TabNavigator() {
                     tabBarLabel: 'Track',
                     tabBarIcon: ({ color }) => (
                         <MaterialCommunityIcons name="finance" size={26} color={color} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{
+                    tabBarLabel: 'Settings',
+                    tabBarIcon: ({ color }) => (
+                        <MaterialCommunityIcons name="cog" size={26} color={color} />
                     ),
                 }}
             />
