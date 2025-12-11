@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // For Android Emulator use 10.0.2.2, for iOS/Web use localhost
-const BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+const BASE_URL = 'https://portfolio-optimizer-s1yj.onrender.com';
 
 export const optimizePortfolio = async (data) => {
     try {
